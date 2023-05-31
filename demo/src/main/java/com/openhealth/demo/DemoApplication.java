@@ -1,5 +1,6 @@
 package com.openhealth.demo;
 
+import java.sql.Timestamp;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.messaging.MessageHandler;
@@ -12,10 +13,13 @@ import org.springframework.integration.mqtt.support.DefaultPahoMessageConverter;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessagingException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 @SpringBootApplication
 public class DemoApplication {
 
+	public static int id = 1;
 	public static void main(String[] args) {
 		
 		SpringApplication.run(DemoApplication.class, args);
@@ -40,15 +44,27 @@ public class DemoApplication {
 
 	@Bean
 	@ServiceActivator(inputChannel = "mqttInputChannel")
-	
 	public MessageHandler handler() {
 			return new MessageHandler() {
 
 					@Override
 					public void handleMessage(Message<?> message) throws MessagingException {
+						  
 							System.out.println("Door status: " + message.getPayload());
+							jdbcTemplate().update("INSERT INTO events values(?,?,?)", ++id , new Timestamp(System.currentTimeMillis()), message.getPayload());
 					}
 
-			};
-	}
+			};	
+		}
+	@Bean
+  public JdbcTemplate jdbcTemplate() {
+    DriverManagerDataSource dataSource = new DriverManagerDataSource();
+    dataSource.setDriverClassName("org.postgresql.Driver");
+    dataSource.setUrl("jdbc:postgresql://localhost:5432/openhealth");
+    dataSource.setUsername("admin");
+    dataSource.setPassword("Redhat1!");
+
+    return new JdbcTemplate(dataSource);
+}
+	
 }
