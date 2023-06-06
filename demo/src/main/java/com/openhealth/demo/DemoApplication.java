@@ -18,8 +18,6 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 @SpringBootApplication
 public class DemoApplication {
-
-	public static int id = 1;
 	public static void main(String[] args) {
 		
 		SpringApplication.run(DemoApplication.class, args);
@@ -32,8 +30,9 @@ public class DemoApplication {
 
 	@Bean
 	public MessageProducer inbound() {
+		System.out.println("connecting to mtqq....");
 			MqttPahoMessageDrivenChannelAdapter adapter =
-							new MqttPahoMessageDrivenChannelAdapter("tcp://localhost:1883", "testClient",
+							new MqttPahoMessageDrivenChannelAdapter("tcp://192.168.178.67:1883", "testClient1",
 																							 "test/message");
 			adapter.setCompletionTimeout(5000);
 			adapter.setConverter(new DefaultPahoMessageConverter());
@@ -51,7 +50,7 @@ public class DemoApplication {
 					public void handleMessage(Message<?> message) throws MessagingException {
 						  
 							System.out.println("Door status: " + message.getPayload());
-							jdbcTemplate().update("INSERT INTO events values(?,?,?)", ++id , new Timestamp(System.currentTimeMillis()), message.getPayload());
+							jdbcTemplate().update("INSERT INTO events(timestamp, message) values(?,?)", new Timestamp(System.currentTimeMillis()), message.getPayload());
 					}
 
 			};	
