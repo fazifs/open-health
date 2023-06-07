@@ -9,6 +9,6 @@
         api_args:
           chat_id: "{{ lookup('env','TELEGRAM_CHAT_ID') }}"
           parse_mode: "markdown"
-          text: "The patient has not opened the fridge for a day"
+          text: "{{ telegram_message }}"
           disable_web_page_preview: true
           disable_notification: true
