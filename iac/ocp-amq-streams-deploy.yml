@@ -1,0 +1,49 @@
+---
+- name: Deploy AMQ Streams operator
+  kubernetes.core.k8s:
+    state: present
+    template:
+      - path: "{{ item }}"
+  with_fileglob:
+    - "{{ amq_streams_operator_templates_path }}/*.j2"
+
+- name: Get pending InstallPlans for AMQ Streams operator
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    namespace: "{{ ansible_demo_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/amq-streams.{{ ansible_demo_namespace }}="
+  register: amq_streams_operator_installplans
+  until: amq_streams_operator_installplans.resources
+  retries: 6
+  delay: 5
+
+- name: Approve pending InstallPlans for AMQ Streams operator
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: operators.coreos.com/v1alpha1
+      kind: InstallPlan
+      metadata:
+        name: "{{ item.metadata.name }}"
+        namespace: "{{ ansible_demo_namespace }}"
+      spec:
+        approved: true
+    state: present
+  loop:
+    "{{ amq_streams_operator_installplans.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  when:
+    - item.spec.approved == false
+
+- name: Wait for Streams operator to install
+  kubernetes.core.k8s_info:
+    api_version: apiextensions.k8s.io/v1
+    kind: CustomResourceDefinition
+    name: kafkas.kafka.strimzi.io
+  register: amq_streams_crd_obj
+  until: 
+    - amq_streams_crd_obj.resources | list | length == 1
+  retries: 12
+  delay: 5

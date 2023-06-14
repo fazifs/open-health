@@ -1,0 +1,58 @@
+---
+- name: Deploy AMQ Streams instance
+  kubernetes.core.k8s:
+    state: present
+    template:
+      - path: "{{ amq_streams_instance_templates_path }}/amq-streams-instance.yml.j2"
+ 
+- name: Wait till AMQ Streams instance is ready
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: Kafka
+    name: kafka-demo
+    namespace: "{{ ansible_demo_namespace }}"
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 360
+  register: amq_streams_kafka_obj
+  until:
+    - amq_streams_kafka_obj.resources[0].status |
+       json_query('conditions[?status==`True`].status') == ["True"]
+    - amq_streams_kafka_obj.resources[0].status |
+       json_query('conditions[?type==`Ready`].status') == ["True"]
+  retries: 85
+  delay: 10
+
+- name: Create AMQ Streams topic
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: kafka.strimzi.io/v1beta2
+      kind: KafkaTopic
+      metadata:
+        name: kafka-topic
+        namespace: "{{ ansible_demo_namespace }}"
+        labels:
+          strimzi.io/cluster: kafka-demo
+      spec:
+        partitions: 1
+        replicas: 3
+        config:
+          retention.ms: 604800000
+          segment.bytes: 1073741824
+    state: present
+
+- name: Wait till AMQ Streams topic is ready
+  kubernetes.core.k8s_info:
+    api_version: kafka.strimzi.io/v1beta2
+    kind: KafkaTopic
+    name: kafka-topic
+    namespace: "{{ ansible_demo_namespace }}"
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 360
+  register: amq_streams_kafka_topic_obj
+  until:
+    - amq_streams_kafka_topic_obj.resources[0].status |
+       json_query('conditions[?type==`Ready`].status') == ["True"]
+  retries: 85
+  delay: 10

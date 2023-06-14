@@ -1,0 +1,29 @@
+---
+apiVersion: automationcontroller.ansible.com/v1beta1
+kind: AutomationController
+metadata:
+  name: aap-demo
+  namespace: {{ ansible_demo_namespace }}
+spec:
+  create_preload_data: true
+  route_tls_termination_mechanism: Edge
+  garbage_collect_secrets: true
+  service_type: ClusterIP
+  ingress_type: Route
+  loadbalancer_port: 80
+  projects_use_existing_claim: _No_
+  image_pull_policy: IfNotPresent
+  projects_storage_size: 20Gi
+  task_privileged: false
+{% if openshift_storage_class == "gp2" or openshift_storage_class == "gp3-csi" %}
+  projects_storage_access_mode: ReadWriteOnce
+{% else %}
+  projects_storage_access_mode: ReadWriteMany
+{% endif %}
+  projects_persistence: true
+  replicas: 1
+  admin_user: admin
+  loadbalancer_protocol: http
+  nodeport_port: 30080
+  route_host: aap-demo.{{ ocp_ingress_domain[0] }}
+  admin_password_secret: aap-demo-admin-password

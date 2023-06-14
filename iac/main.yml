@@ -1,0 +1,67 @@
+---
+- name: Deploy Demo Environment
+  hosts: all
+  gather_facts: false
+
+  pre_tasks:
+    - name: Check OCP input parameters
+      ansible.builtin.assert: 
+        that: 
+          - "{{ item }} is defined" 
+        msg: "{{ item }} must be defined"
+      with_items: 
+        - openshit_api
+        - openshift_token
+        - openshift_storage_class
+
+    - name: Include Demo configuration vars
+      ansible.builtin.include_vars:
+        file: vars/demo-config.yml
+      tags:
+        - always
+
+  tasks:
+    - block:
+        - name: Config OCP cluster
+          ansible.builtin.include_tasks: 
+            file: ocp-cluster-config.yml
+   
+        - name: Get OCP cluster information
+          ansible.builtin.include_tasks:
+            file: ocp-cluster-info.yml
+
+        - name: Install Ansible Automation Platform operator
+          ansible.builtin.include_tasks:
+            file: ocp-ansible-deploy.yml
+
+        - name: Install Ansible Automation Platform instance
+          ansible.builtin.include_tasks:
+            file: ocp-ansible-instance.yml
+
+        - name: Include Ansible Automation Platform configuration vars
+          ansible.builtin.include_vars:
+            file: vars/ansible-config.yml
+
+        - name: Config Ansible Automation Platform instance
+          ansible.builtin.include_tasks:
+            file: ocp-ansible-config.yml
+
+        - name: Create Ansible Automation Platform Oauth Token
+          ansible.builtin.include_tasks:
+            file: ocp-ansible-token.yml
+
+        - name: Install AMQ Streams operator
+          ansible.builtin.include_tasks:
+            file: ocp-amq-streams-deploy.yml
+
+        - name: Install AMQ Streams instance
+          ansible.builtin.include_tasks:
+            file: ocp-amq-streams-instance.yml
+
+        - name: Install Ansible EDA instance
+          ansible.builtin.include_tasks: 
+            file: ocp-ansible-eda-deploy.yml
+      environment:
+        K8S_AUTH_HOST: "{{ openshit_api }}"
+        K8S_AUTH_API_KEY: "{{ openshift_token }}"
+        K8S_AUTH_VERIFY_SSL: False

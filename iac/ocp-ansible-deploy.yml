@@ -1,0 +1,80 @@
+---
+- name: Deploy Ansible Automation Platform operator
+  kubernetes.core.k8s:
+    state: present
+    template:
+      - path: "{{ item }}"
+  with_fileglob:
+    - "{{ ansible_operator_templates_path }}/*.j2"
+
+- name: Get pending InstallPlans for Ansible Automation Platform operator
+  kubernetes.core.k8s_info:
+    api_version: operators.coreos.com/v1alpha1
+    kind: InstallPlan
+    namespace: "{{ ansible_demo_namespace }}"
+    label_selectors:
+      - "operators.coreos.com/ansible-automation-platform-operator.{{ ansible_demo_namespace }}="
+  register: aap_operator_installplans
+  until: aap_operator_installplans.resources
+  retries: 6
+  delay: 5
+
+- name: Approve pending InstallPlans for Ansible Automation Platform operator
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: operators.coreos.com/v1alpha1
+      kind: InstallPlan
+      metadata:
+        name: "{{ item.metadata.name }}"
+        namespace: "{{ ansible_demo_namespace }}"
+      spec:
+        approved: true
+    state: present
+  loop:
+    "{{ aap_operator_installplans.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  when:
+    - item.spec.approved == false
+
+- name: Wait till the Automation Controller Manager deployment is running
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    name: automation-controller-operator-controller-manager
+    namespace: "{{ ansible_demo_namespace }}"
+  register: aap_ctl_deploy_obj
+  until:
+    - aap_ctl_deploy_obj.resources[0].status.readyReplicas is defined
+    - "aap_ctl_deploy_obj.resources[0].status.replicas == \
+        aap_ctl_deploy_obj.resources[0].status.readyReplicas"
+  retries: 10
+  delay: 5
+
+- name: Wait till the Automation Hub Manager deployment is running
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    name: automation-hub-operator-controller-manager
+    namespace: "{{ ansible_demo_namespace }}"
+  register: aap_hub_deploy_obj
+  until:
+    - aap_hub_deploy_obj.resources[0].status.readyReplicas is defined
+    - "aap_hub_deploy_obj.resources[0].status.replicas == \
+        aap_hub_deploy_obj.resources[0].status.readyReplicas"
+  retries: 10
+  delay: 5
+
+- name: Wait till the Automation Resource Manager deployment is running
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Deployment
+    name: resource-operator-controller-manager
+    namespace: "{{ ansible_demo_namespace }}"
+  register: aap_res_deploy_obj
+  until:
+    - aap_res_deploy_obj.resources[0].status.readyReplicas is defined
+    - "aap_res_deploy_obj.resources[0].status.replicas == \
+        aap_res_deploy_obj.resources[0].status.readyReplicas"
+  retries: 10
+  delay: 5

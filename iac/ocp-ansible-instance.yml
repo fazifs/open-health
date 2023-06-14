@@ -1,0 +1,108 @@
+---
+- name: Create Automation Controller admin password secret
+  kubernetes.core.k8s:
+    definition:
+      api_version: v1
+      metadata:
+        name: aap-demo-admin-password
+        namespace: "{{ ansible_demo_namespace }}"
+      kind: Secret
+      label_selectors:
+        - app.kubernetes.io/name=aap-demo
+      data:
+        password: "{{ ansible_instance_admin_password | b64encode }}"
+    state: present
+
+- name: Deploy Automation Controller instance
+  kubernetes.core.k8s:
+    state: present
+    template:
+      - path: "{{ ansible_instance_templates_path }}/ansible-instance.yml.j2"
+
+- name: Wait till Automation Controller PostgreSQL statefulset is ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: StatefulSet
+    name: aap-demo-postgres-13
+    namespace: "{{ ansible_demo_namespace }}"
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 60
+  register: aapctl_pgsql_statefulset
+  until:
+   - aapctl_pgsql_statefulset.resources[0].status.readyReplicas is defined
+   - "aapctl_pgsql_statefulset.resources[0].status.replicas == \
+       aapctl_pgsql_statefulset.resources[0].status.readyReplicas"
+  retries: 24
+  delay: 10
+
+- name: Wait till Automation Controller deployment is ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: aap-demo
+    namespace: "{{ ansible_demo_namespace }}"
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 360
+  register: aapctl_deployment_obj
+  until:
+   - aapctl_deployment_obj.resources[0].status.readyReplicas is defined
+   - "aapctl_deployment_obj.resources[0].status.replicas == \
+       aapctl_deployment_obj.resources[0].status.readyReplicas"
+  retries: 12
+  delay: 10
+
+- name: Wait till Automation Controller instance is fully deployed
+  kubernetes.core.k8s_info:
+    api_version: automationcontroller.ansible.com/v1beta1
+    kind: AutomationController
+    name: aap-demo
+    namespace: "{{ ansible_demo_namespace }}"
+  register: aapctl_instance_obj
+  until:
+    - aapctl_instance_obj.resources[0].status |
+       json_query('conditions[?reason==`Successful`].status') == ["True"]
+    - aapctl_instance_obj.resources[0].status |
+       json_query('conditions[?type==`Running`].status') == ["True"]
+  retries: 85
+  delay: 10
+
+- name: Wait till Automation Controller URL is reachable
+  ansible.builtin.uri:
+    url: "https://aap-demo.{{ ocp_ingress_domain[0] }}"
+    method: GET
+    follow_redirects: none
+    validate_certs: false
+  register: _result
+  until: _result.status == 200
+  retries: 720
+  delay: 5
+
+- name: Copy Automation Controller manifest file
+  ansible.builtin.template:
+    dest: /root/ansible-manifest.zip
+    group: root
+    src: "{{ ansible_instance_templates_path }}/ansible-manifest.zip.j2"
+    mode: 0644
+    owner: root
+
+- name: Load Automation Controller manifest into variable
+  ansible.builtin.slurp:
+    src: /root/ansible-manifest.zip
+  register: aapctl_manifest_file
+
+- name: Post Automation Controller manifest file
+  ansible.builtin.uri:
+    url: "https://aap-demo.{{ ocp_ingress_domain[0] }}/api/v2/config/"
+    method: POST
+    user: admin
+    password: "{{ ansible_instance_admin_password }}"
+    body: >
+      {
+       "eula_accepted": true,
+       "manifest": "{{ aapctl_manifest_file.content }}"
+      }
+    body_format: json
+    validate_certs: false
+    force_basic_auth: true

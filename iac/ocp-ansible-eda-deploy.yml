@@ -1,0 +1,39 @@
+---
+- name: Create Ansible EDA secret
+  kubernetes.core.k8s:
+    definition:
+      api_version: v1
+      metadata:
+        name: ansible-eda
+        namespace: "{{ ansible_demo_namespace }}"
+      kind: Secret
+      label_selectors:
+        - app.kubernetes.io/app=ansible-eda
+      data:
+        EDA_CONTROLLER_URL: "{{ aap_host | b64encode }}"
+        EDA_CONTROLLER_TOKEN: "{{ aap_ocp_eda_token | b64encode }}"
+        EDA_CONTROLLER_SSL_VERIFY: "{{ 'false' | b64encode }}"
+    state: present
+
+- name: Deploy Ansible EDA instance
+  kubernetes.core.k8s:
+    state: present
+    template:
+      - path: "{{ eda_templates_path }}/ansible-eda-deployment.yml.j2"
+
+- name: Wait till Ansible EDA instance deployment is ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: ansible-eda
+    namespace: "{{ ansible_demo_namespace }}"
+    wait: yes
+    wait_sleep: 10
+    wait_timeout: 360
+  register: eda_instance_deployment_obj
+  until:
+   - eda_instance_deployment_obj.resources[0].status.readyReplicas is defined
+   - "eda_instance_deployment_obj.resources[0].status.replicas == \
+       eda_instance_deployment_obj.resources[0].status.readyReplicas"
+  retries: 12
+  delay: 10

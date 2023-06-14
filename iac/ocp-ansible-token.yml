@@ -1,0 +1,16 @@
+---
+- name: Create Ansible EDA Token
+  ansible.controller.token:
+    description: "Ansible EDA Token"
+    application: "Ansible EDA Application"
+    scope: "write"
+    state: present
+    controller_host: "{{ aap_host }}"
+    controller_username: "{{ aap_user }}"
+    controller_password: "{{ aap_pass }}"
+    validate_certs: no
+  register: aap_eda_token
+
+- name: Get Ansible EDA Token
+  ansible.builtin.set_fact:
+    aap_ocp_eda_token: "{{ aap_eda_token.ansible_facts.controller_token.token }}"

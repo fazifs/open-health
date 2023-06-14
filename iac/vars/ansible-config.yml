@@ -1,0 +1,88 @@
+---
+aap_host: "https://aap-demo.{{ ocp_ingress_domain[0] }}"
+aap_user: admin
+aap_pass: redhat
+
+python_interpreter: "{% raw %}{{ ansible_playbook_python }}{% endraw %}"
+
+organizations: []
+
+teams: []
+
+users: []
+
+admin_users: []
+
+auditor_users: []
+
+inventories: 
+  - name: "Automation Controller Inventory"
+    desc: "Automation Controller Inventory"
+    org: Default
+
+hosts: 
+  - name: localhost
+    desc: ""
+    inv: "Automation Controller Inventory"
+    vars: { "ansible_connection": "local", "ansible_python_interpreter": "{% raw %}{{ python_interpreter }}{% endraw %}" }
+
+execution_enviroment:
+  - name: "Ansible EDA Execution Environment"
+    desc: "image-registry.openshift-image-registry.svc:5000/{{ ansible_demo_namespace }}/ansible-eda-ee:1.0"
+
+applications:
+  - name: "Ansible EDA Application"
+    desc: "Ansible EDA Application"
+    org: Default
+    auth_grant_type: password
+
+scm_custom_credential_types:
+  - name: "Telegram API"
+    kind: cloud
+    inputs: "{{ lookup('file', 'credential-types/telegram-api-inputs.json') }}"
+    injectors: "{{ lookup('file', 'credential-types/telegram-api-injectors.json') }}"
+
+scm_credentials:
+  - name: "Red Hat Ansible Automation Platform Credential"
+    desc: "Red Hat Ansible Automation Platform Credential"
+    org: Default
+    type: "Red Hat Ansible Automation Platform"
+    inputs:
+      host: "{{ aap_host }}"
+      username: "{{ aap_user }}"
+  - name: "Telegram API Token"
+    desc: "Telegram API Token"
+    org: Default
+    type: "Telegram API"
+    inputs:
+      telegram_token: "{{ telegram_token }}"
+      telegram_chat_id: "{{ telegram_chat_id }}"
+
+scm_projects:
+  - name: "Open Health Project"
+    desc: "Open Heatlh Project"
+    org: Default
+    git_url: "https://github.com/fazifs/open-health.git"
+    git_branch: main
+    git_cred: ""
+    update_on_launch: no
+
+scm_jobtemplates:
+  - name: "Notify carer on Telegram"
+    org: Default
+    inv: "Automation Controller Inventory"
+    project: "Open Health Project"
+    playbook: "ansible/telegram-notify.yml"
+    creds: "Telegram API Token"
+    ask_variables_on_launch: no
+    allow_simultaneous: no
+    extra_vars: { "telegram_message:": "The patient has not opened the fridge for a day" }
+    execution_environment: "Ansible EDA Execution Environment"
+ 
+scm_jobtemplates_survey: []
+
+scm_workflowjobtemplates: []
+
+scm_workflowjobtemplates_webhook: []
+
+scm_workflowjobtemplates_survey: []

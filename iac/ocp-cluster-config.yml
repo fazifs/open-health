@@ -1,0 +1,30 @@
+---
+- name: Create Ansible Demo namespace
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ ansible_demo_namespace }}"
+    state: present
+
+- name: Create Ansible Demo operator group
+  kubernetes.core.k8s:
+    definition:
+      apiVersion: operators.coreos.com/v1
+      kind: OperatorGroup
+      metadata:
+        name: "{{ ansible_demo_namespace }}"
+        namespace: "{{ ansible_demo_namespace }}"
+      spec:
+        targetNamespaces:
+          - "{{ ansible_demo_namespace }}"
+    state: present
+
+- name: Create IS for Quay.io images
+  kubernetes.core.k8s:
+    state: present
+    template:
+      - path: "{{ item }}"
+  with_fileglob:
+    - "{{ ocp_templates_path }}/*.j2"

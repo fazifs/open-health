@@ -1,0 +1,129 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  labels:
+    app: ansible-eda
+    app.kubernetes.io/component: ansible-eda
+    app.kubernetes.io/instance: ansible-eda
+    app.openshift.io/runtime: ansible
+  name: ansible-eda
+  namespace: {{ ansible_demo_namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ansible-eda
+  template:
+    metadata:
+      labels:
+        app: ansible-eda
+    spec:
+      volumes:
+        - name: ansible-eda-rulebook
+          configMap:
+            name: ansible-eda-rulebook
+            defaultMode: 420
+      containers:
+      - envFrom:
+        - secretRef:
+            name: ansible-eda
+        image: ansible-eda-app:1.0
+        ports:
+        - containerPort: 5000
+          protocol: TCP
+        name: ansible-eda
+        livenessProbe:
+          exec:
+            command:
+            - echo
+            - ok
+          failureThreshold: 3
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            memory: 2Gi
+            cpu: 1
+          requests:
+            memory: 512Mi
+            cpu: 200m
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        terminationMessagePath: /dev/termination-log
+        volumeMounts:
+          - name: ansible-eda-rulebook
+            mountPath: /tmp/ansible-eda/ansible-rulebook.yml
+            subPath: ansible-rulebook.yml
+
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: ansible-eda-rulebook
+  namespace: {{ ansible_demo_namespace }}
+  labels:
+    app: ansible-eda
+data:
+  ansible-rulebook.yml: |-
+    ---
+    - name: Waiting for Kafka
+      hosts: all
+
+      sources:
+        - name: Kafka internal
+          ansible_ssa.eda.kafka:
+            topic: kafka-topic
+            host: kafka-demo-kafka-bootstrap.{{ ansible_demo_namespace }}.svc.cluster.local
+            port: 9092
+
+      rules:
+        - name: Notify to patient
+          condition: event.body == "The door-closing event is detected"
+          action:
+            run_job_template:
+              name: "Notify carer on Telegram"
+              organization: Default
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: ansible-eda
+  namespace: {{ ansible_demo_namespace }}
+  labels:
+    app: ansible-eda
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 5000
+      protocol: TCP
+  selector:
+    app: ansible-eda
+
+---
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:
+  name: ansible-eda
+  namespace: {{ ansible_demo_namespace }}
+  labels:
+    app: ansible-eda
+spec:
+  host: ansible-eda.{{ ocp_ingress_domain[0] }}
+  path: /
+  to:
+    kind: Service
+    name: ansible-eda
+    weight: 100
+  port:
+    targetPort: 5000

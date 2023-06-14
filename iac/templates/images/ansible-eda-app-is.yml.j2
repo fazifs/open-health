@@ -1,0 +1,16 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: ansible-eda-app
+  namespace: {{ ansible_demo_namespace }}
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+  - from:
+      kind: DockerImage
+      name: quay.io/ansible_eda/ansible-eda-app:1.0
+    name: "1.0"
+    referencePolicy:
+      type: Local

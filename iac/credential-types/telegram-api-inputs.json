@@ -1,0 +1,18 @@
+{
+  "fields": [
+    {
+      "id": "telegram_token",
+      "type": "string",
+      "label": "Telegram Token"
+    },
+    {
+      "id": "telegram_chat_id",
+      "type": "string",
+      "label": "Telegram Chat ID"
+    }
+  ],
+  "required": [
+    "telegram_token",
+    "telegram_chat_id"
+  ]
+}
