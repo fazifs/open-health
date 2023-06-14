@@ -16,6 +16,7 @@
     wait_timeout: 360
   register: amq_streams_kafka_obj
   until:
+    - amq_streams_kafka_obj.resources[0].status.conditions is defined
     - amq_streams_kafka_obj.resources[0].status |
        json_query('conditions[?status==`True`].status') == ["True"]
     - amq_streams_kafka_obj.resources[0].status |
@@ -52,6 +53,7 @@
     wait_timeout: 360
   register: amq_streams_kafka_topic_obj
   until:
+    - amq_streams_kafka_topic_obj.resources[0].status.conditions is defined
     - amq_streams_kafka_topic_obj.resources[0].status |
        json_query('conditions[?type==`Ready`].status') == ["True"]
   retries: 85
