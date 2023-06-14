@@ -1,6 +1,6 @@
-# demo-environment
+# open-health
 
-Ansible Even Driven Automation AMQ Streams Demo
+Open Health Demo
 
 ## Demo/Lab Developers:
 
