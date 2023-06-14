@@ -1,6 +1,6 @@
 # demo-environment
 
-Ansible Even Driven Automation Dynatrace Demo
+Ansible Even Driven Automation AMQ Streams Demo
 
 ## Demo/Lab Developers:
 
