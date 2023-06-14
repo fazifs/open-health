@@ -1,9 +1,9 @@
-- name: Send notify to Telegram
+- name: Send notification to Telegram
   hosts: all
   gather_facts: true
 
   tasks:
-    - name: Send notify to Patient
+    - name: Send notification to carer
       community.general.telegram:
         token: "{{ lookup('env','TELEGRAM_TOKEN') }}"
         api_args:
